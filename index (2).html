@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=Plus+Jakarta+Sans:wght@400;500;700&display=swap">
+<style>
+/* Layout: satu kolom sempit seperti app mobile; papan di tengah, bottom-sheet untuk kartu pertanyaan */
+:root{
+  --bg:#fff4f9; --surface:#ffffff; --ink:#24172a; --muted:#7a6678; --line:#f3d3e3;
+  --pink:#e8409f; --pink-soft:#fcd5e3; --teal:#1f7a6d; --board:#f9e3ee; --shadow:0 10px 30px rgba(232,64,159,.15);
+  --c-energi:#ff7b7b; --c-waktu:#ffb44a; --c-uang:#4fc98a; --c-pengetahuan:#58a6ff; --c-jaringan:#a97bff; --c-suara:#f05bc4;
+  --display:'Bricolage Grotesque','Trebuchet MS',sans-serif; --body:'Plus Jakarta Sans',system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#1a1119; --surface:#271a27; --ink:#fbe9f3; --muted:#c3a8bc; --line:#432c40; --pink:#ff6fb8; --pink-soft:#4a2a42; --teal:#5fd3c2; --board:#321f30; --shadow:0 10px 30px rgba(0,0,0,.4); color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#1a1119; --surface:#271a27; --ink:#fbe9f3; --muted:#c3a8bc; --line:#432c40; --pink:#ff6fb8; --pink-soft:#4a2a42; --teal:#5fd3c2; --board:#321f30; --shadow:0 10px 30px rgba(0,0,0,.4); color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;padding-block:16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));-webkit-tap-highlight-color:transparent}
+.app{max-width:460px;margin:0 auto;display:flex;flex-direction:column;gap:12px;min-width:0}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--pink);outline-offset:2px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.logo{font-size:22px;font-weight:800;letter-spacing:-.02em}.logo b{color:var(--pink)}
+.chip{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:var(--pink-soft);color:var(--ink);padding:6px 12px;border-radius:99px}
+.bar{height:10px;background:var(--line);border-radius:99px;overflow:hidden}
+.bar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--pink),#ffb44a);border-radius:99px;transition:width .4s}
+.daybox{display:flex;flex-direction:column;gap:6px}
+.dayrow{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);font-weight:500}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:6px 4px;text-align:center;min-width:0}
+.stat b{display:block;font-family:var(--display);font-size:17px;font-variant-numeric:tabular-nums;transition:transform .2s}
+.stat b.bump{transform:scale(1.35)}
+.stat span{font-size:10px;color:var(--muted);font-weight:700;letter-spacing:0;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pools{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.pool{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:5px 8px;font-size:11.5px;font-weight:700;min-width:0}
+.pool div{height:5px;background:var(--line);border-radius:9px;margin-top:3px;overflow:hidden}
+.pool i{display:block;height:100%;border-radius:9px;transition:width .3s}
+.boardwrap{position:relative;background:var(--board);border-radius:22px;padding:8px;box-shadow:var(--shadow)}
+#board{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;aspect-ratio:1;touch-action:none;user-select:none}
+.cell{position:relative;border:0;border-radius:12px;padding:0;font-size:clamp(18px,6.4vw,28px);display:grid;place-items:center;background:var(--surface);box-shadow:inset 0 -3px 0 rgba(0,0,0,.1);transition:transform .16s ease,opacity .2s}
+.cell[data-t="0"]{background:var(--c-energi)}.cell[data-t="1"]{background:var(--c-waktu)}.cell[data-t="2"]{background:var(--c-uang)}
+.cell[data-t="3"]{background:var(--c-pengetahuan)}.cell[data-t="4"]{background:var(--c-jaringan)}.cell[data-t="5"]{background:var(--c-suara)}
+.cell.sel{transform:scale(.86);outline:3px solid var(--ink)}
+.cell.pop{transform:scale(0);opacity:0}
+.cell.fall{animation:fall .38s cubic-bezier(.3,1.3,.5,1) both}
+@keyframes fall{from{transform:translateY(calc(var(--d,1)*-105%));opacity:.4}to{transform:none;opacity:1}}
+.cell.hint{animation:pulse .7s 3}
+@keyframes pulse{50%{transform:scale(.8)}}
+.cheer{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%) scale(.6);background:var(--ink);color:var(--bg);font-family:var(--display);font-weight:800;padding:8px 16px;border-radius:99px;opacity:0;pointer-events:none;white-space:nowrap}
+.cheer.show{animation:cheer 1.1s ease}
+@keyframes cheer{15%{opacity:1;transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-90%) scale(1)}}
+.legend{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.btn{background:var(--surface);border:1.5px solid var(--line);border-radius:99px;padding:8px 14px;font-weight:700;font-size:13px}
+.btn.main{background:var(--pink);border-color:var(--pink);color:#fff}
+.sheet{position:fixed;inset:0;background:rgba(20,8,20,.55);display:flex;align-items:flex-end;justify-content:center;z-index:20;padding-top:env(safe-area-inset-top,0px)}
+.sheet[hidden]{display:none}
+.card{background:var(--surface);width:100%;max-width:520px;max-height:92%;overflow:auto;border-radius:26px 26px 0 0;padding:20px max(18px,env(safe-area-inset-left,0px)) calc(18px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px;animation:up .35s ease}
+@keyframes up{from{transform:translateY(40px);opacity:0}}
+.eyebrow{font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--teal)}
+.card h2{font-size:23px;line-height:1.15}
+.card p{margin:0;color:var(--muted)}
+.opts{display:flex;flex-direction:column;gap:8px}
+.opt{text-align:left;background:var(--bg);border:1.5px solid var(--line);border-radius:16px;padding:11px 14px;display:flex;flex-direction:column;gap:3px}
+.opt:hover:not(:disabled){border-color:var(--pink)}
+.opt strong{font-size:15px}.opt small{color:var(--muted);font-size:12.5px}
+.opt:disabled{opacity:.55;cursor:not-allowed}
+.tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:2px}
+.tag{font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--pink-soft)}
+.tag.cost{background:transparent;border:1px dashed var(--muted);color:var(--muted)}
+.tag.lock{background:var(--line);color:var(--muted)}
+.fb{background:var(--pink-soft);border-radius:16px;padding:12px 14px;color:var(--ink)}
+.fb em{display:block;font-style:normal;font-size:12.5px;color:var(--muted);margin-top:6px}
+.res{display:flex;flex-direction:column;gap:8px}
+.res .row{display:grid;grid-template-columns:96px 1fr 28px;align-items:center;gap:8px;font-size:13px;font-weight:700}
+.res .row div{height:9px;background:var(--line);border-radius:9px;overflow:hidden}.res .row i{display:block;height:100%;background:var(--pink);border-radius:9px}
+.steps{display:flex;gap:5px;flex-wrap:wrap}.steps span{font-size:11px;font-weight:700;padding:4px 9px;border-radius:99px;background:var(--line)}.steps span.on{background:var(--pink);color:#fff}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+<style>body{margin:0}[hidden]{display:none!important}</style>
+<title>Her Energy Match</title>
+</head>
+<body>
+<main class="app">
+  <div class="top">
+    <div class="logo"><b>HER</b> ENERGY</div>
+    <div style="display:flex;gap:6px;align-items:center"><span class="chip" id="dayChip">Hari 1 · Rumah</span></div>
+  </div>
+  <div class="daybox">
+    <div class="dayrow"><span id="dayHint">Match tiles buat ngisi "bekal" Rani hari ini</span><span id="progTxt">0%</span></div>
+    <div class="bar"><i id="prog"></i></div>
+  </div>
+  <div class="stats" id="stats"></div>
+  <div class="pools" id="pools"></div>
+  <div class="boardwrap">
+    <div id="board" role="grid" aria-label="Papan match-3"></div>
+    <div class="cheer" id="cheer"></div>
+  </div>
+  <div class="legend">
+    <span>Geser atau tap 2 tile bersebelahan. Tanpa nyawa, tanpa timer, santai aja.</span>
+    <button class="btn" id="hintBtn" type="button">Hint</button>
+  </div>
+</main>
+<div class="sheet" id="sheet" hidden><div class="card" id="card" role="dialog" aria-modal="true"></div></div>
+<script>
+const NAMA={energi:'Energi',waktu:'Waktu',uang:'Uang',pengetahuan:'Pengetahuan',jaringan:'Jaringan',suara:'Suara',agency:'Agency'};
+const TILES=[{k:'energi',e:'⚡'},{k:'waktu',e:'⏰'},{k:'uang',e:'💰'},{k:'pengetahuan',e:'📚'},{k:'jaringan',e:'🤝'},{k:'suara',e:'📣'}];
+const DAYS=[
+{chip:'Hari 1 · Rumah',tag:'Pagi yang sibuk',q:'Banyak hal harus dilakukan.',
+ p:'Rani menyiapkan sarapan, mengurus anak, dan membantu usaha kecil keluarga. Pagi ini ada undangan sosialisasi tentang PLTS di balai desa. Waktu Rani terbatas.',
+ o:[
+  {t:'Tidak datang, kerjakan semua pekerjaan rumah sendiri',d:'Waktu keluarga aman, namun informasi PLTS berkurang.',g:{agency:0},flag:'skipForum',fb:'Rumah kinclong, dagangan rapi jali. Tapi Rani nggak dapat info PLTS sama sekali. Hmm, kayaknya ini bakal kepikiran lagi nanti.'},
+  {t:'Minta bantuan pasangan',d:'Membuka komunikasi pembagian kerja domestik.',cost:{waktu:5},g:{pengetahuan:6,agency:5,jaringan:2},flag:'partner',fb:'Dadan: "Oh gitu? Siap!" Ternyata gampang kalau diomongin. Rani berangkat tanpa beban dan pulang bawa info baru.'},
+  {t:'Minta bantuan keluarga',d:'Memanfaatkan dukungan kerabat.',cost:{uang:5},g:{pengetahuan:6,jaringan:5},flag:'family',fb:'Ibu mertua turun tangan, bahkan bawa pisang goreng. Jaringan nambah, info PLTS pun masuk.'},
+  {t:'Bergantian dengan perempuan lain',d:'Membangun kerja sama komunitas.',cost:{energi:5},g:{pengetahuan:5,jaringan:4,agency:3},flag:'shift',fb:'Siti hadir buat berdua, Rani nyatet buat berdua. Kerja sama kecil, hasilnya win-win.'}]},
+{chip:'Hari 2 · Balai Desa',tag:'Informasi pertama',q:'PLTS bukan hanya soal panel surya.',
+ p:'Di balai desa, fasilitator menjelaskan teknologi PLTS dan pengelolaan kawasan. Rani mulai bertanya: siapa memperoleh manfaat, dan siapa perlu menanggung dampaknya?',
+ o:[
+  {t:'Dengarkan saja',d:'Informasi dasar bertambah, tetapi pertanyaanmu belum tersampaikan.',g:{pengetahuan:4},fb:'Cukup buat paham garis besarnya. Masih mode penonton, dan itu nggak apa-apa.'},
+  {t:'Tanyakan dampak bagi kehidupan warga',d:'Kamu menghubungkan teknologi dengan kehidupan sehari-hari.',cost:{energi:5},g:{pengetahuan:10,suara:2},fb:'Pertanyaan Rani bikin Maya buka slide yang tadinya mau dilewatin. Banyak yang manggut-manggut kayak "iya ya, bener juga."'},
+  {t:'Minta dokumen publik proyek PLTS',d:'Kamu membawa pulang informasi resmi untuk dipelajari.',g:{pengetahuan:6},flag:'docs',fb:'Dokumen resmi sudah di tangan. Rani resmi punya bahan obrolan yang nggak asal bunyi.'},
+  {t:'Ajak perempuan lain ikut berdiskusi',d:'Informasi berubah menjadi jejaring dan ruang percakapan bersama.',cost:{energi:8},g:{jaringan:5,suara:5},fb:'Tiga ibu akhirnya ikut angkat tangan. Pertama kalinya sesi tanya jawab nggak didominasi satu kelompok doang.'}]},
+{chip:'Hari 3 · Usaha',tag:'Peluang ekonomi',q:'Kesempatan datang bersama keterbatasan waktu.',
+ p:'Ada pelatihan usaha yang berkaitan dengan peluang ekonomi di sekitar kawasan PLTS. Rani tertarik, tetapi pekerjaan rumah dan pengasuhan masih harus diselesaikan.',
+ o:[
+  {t:'Lewati pelatihan',d:'Peluang belajar dan jejaring terlewat.',g:{uang:5},fb:'Dagangan jalan seperti biasa. Nggak rugi, tapi juga nggak ada yang naik level.'},
+  {t:'Datang sendiri',d:'Kamu memperoleh keterampilan dan mengenal orang baru.',cost:{waktu:10,energi:5},g:{pengetahuan:5,jaringan:4,uang:8},req:{flagNot:'skipForum',lock:'Belum terbuka: kamu skip forum di Hari 1'},fb:'Rani pulang bawa ide kemasan baru dan tiga kontak calon pelanggan. Cuan mulai kebayang.'},
+  {t:'Ajak kelompok perempuan',d:'Pelatihan menjadi pengalaman bersama dan membangun jejaring.',cost:{waktu:8},g:{jaringan:6,agency:3,uang:5},req:{flagNot:'skipForum',lock:'Belum terbuka: kamu skip forum di Hari 1'},fb:'Mereka bikin jadwal antar-jemput anak gantian. Pelatihan jadi proyek bareng, bukan urusan satu orang.'},
+  {t:'Tanyakan materi pelatihan kepada peserta lain',d:'Kamu memperoleh sebagian informasi tanpa hadir langsung.',g:{pengetahuan:3,jaringan:2},fb:'Dapat ringkasannya lewat cerita. Lumayan, walau rasanya kayak nonton spoiler tanpa filmnya.'}]},
+{chip:'Hari 4 · Lingkungan',tag:'Perubahan yang terlihat',q:'Lingkungan juga memberi tanda.',
+ p:'Dalam perjalanan pulang, Rani memperhatikan perubahan di sekitar waduk dan aktivitas warga. Ia belum tahu apakah semua perubahan berkaitan dengan PLTS.',
+ o:[
+  {t:'Abaikan karena bukan urusanmu',d:'Kamu menghemat waktu, tetapi kehilangan kesempatan memahami perubahan.',g:{waktu:0},fb:'Hidup tenang, tapi Rani kehilangan kesempatan baca situasi.'},
+  {t:'Amati dan catat apa yang terlihat',d:'Kamu mulai mengumpulkan pengamatan sebagai pengetahuan lokal.',cost:{energi:4},g:{pengetahuan:5},fb:'Catatan Rani rapi banget. Ternyata ruang gerak perahu warga jadi lebih sempit.'},
+  {t:'Tanyakan kepada warga',d:'Pengalamanmu dibandingkan dengan pengalaman orang lain.',cost:{energi:6},g:{jaringan:4,pengetahuan:3},fb:'Arif ramah, warga juga cerita panjang lebar. Puzzle-nya mulai nyambung.'},
+  {t:'Diskusikan dengan kelompok perempuan',d:'Pengamatan individu menjadi pengetahuan kolektif.',cost:{waktu:6},g:{jaringan:3,suara:4,agency:2},req:{min:{jaringan:12},lock:'Butuh Jaringan minimal 12'},fb:'Catatan tiga orang digabung jadi satu peta. Bahan kuat buat forum.'}]},
+{chip:'Hari 5 · Forum',tag:'Suara perempuan',q:'Siapa yang berbicara ketika keputusan dibuat?',
+ p:'Forum warga membahas perkembangan kawasan. Peserta diminta menyampaikan hal yang perlu diperhatikan. Rani tahu pengalaman perempuan sering terjadi di ruang yang berbeda dari ruang keputusan publik.',
+ o:[
+  {t:'Dengarkan pembicaraan',d:'Kamu memahami isu, tetapi belum menggunakan ruang bicara.',g:{pengetahuan:3},fb:'Rani nyimak serius. Belum ada yang berubah, tapi ya namanya juga mulai.'},
+  {t:'Ceritakan pengalamanmu',d:'Pengalaman sehari-hari menjadi bagian dari percakapan publik.',cost:{energi:8},g:{suara:8,agency:2},fb:'Cerita Rani soal jam antar anak dan jarak ke lokasi bikin satu bapak bergumam, "Oh iya ya."'},
+  {t:'Sampaikan aspirasi kelompok perempuan',d:'Kamu membawa suara yang lebih luas daripada pengalaman pribadi.',cost:{energi:8},g:{suara:6,jaringan:3,agency:3},req:{min:{jaringan:12},lock:'Butuh Jaringan minimal 12'},fb:'Rani bicara atas nama beberapa orang, termasuk Bu Euis yang butuh duduk dekat pengeras suara.'},
+  {t:'Usulkan kebutuhan perempuan masuk dalam keputusan',d:'Kamu menghubungkan pengalaman, pengetahuan, dan pengaruh pada keputusan.',cost:{energi:10,waktu:5},g:{suara:8,agency:8},req:{min:{pengetahuan:20,suara:12},lock:'Butuh Pengetahuan 20 dan Suara 12'},fb:'Usulan Rani dicatat resmi di notulen. Pertama kalinya, dan semoga bukan yang terakhir.'}]},
+{chip:'Hari 6 · Komunitas',tag:'Siapa yang mendapat manfaat?',q:'Manfaat teknologi tidak otomatis sama bagi semua orang.',
+ p:'Dalam percakapan komunitas, muncul pertanyaan: apakah manfaat pembangunan energi dapat diakses semua kelompok? Rani melihat siapa yang mendapat akses, menanggung beban, dan memiliki kendali.',
+ o:[
+  {t:'Anggap manfaat akan terbagi sendiri',d:'Kamu tidak perlu banyak waktu untuk mengurus hal tersebut.',fb:'Rani nggak ngapa-ngapain. Dan itu juga sebuah pilihan.'},
+  {t:'Tanyakan siapa yang punya akses',d:'Kamu mulai menghubungkan antara sumber daya dan akses.',cost:{energi:4},g:{pengetahuan:4,suara:2},fb:'Jawabannya: akses informasi paling jauh dari lansia dan ibu balita.'},
+  {t:'Petakan manfaat dan beban bagi perempuan',d:'Kamu mengidentifikasi sisi ekonomi, waktu, pekerjaan, dan lingkungan.',cost:{waktu:8},g:{pengetahuan:6,agency:3},fb:'Peta Rani rapi. Ternyata manfaat dan beban nggak jatuh ke orang yang sama.'},
+  {t:'Susun usulan manfaat yang inklusif',d:'Kamu mengubah pengetahuan menjadi gagasan bersama.',cost:{waktu:8,energi:6},g:{agency:8,jaringan:4,suara:3},req:{min:{agency:10},lock:'Butuh Agency minimal 10'},fb:'Usulan Rani mencakup jam rapat fleksibel, info versi audio, dan pengasuhan gantian. Komplit!'}]},
+{chip:'Hari 7 · Masa Depan',tag:'Pilihan untuk masa depan',q:'Pengetahuanmu kini punya arah.',
+ p:'Tujuh hari berlalu. Rani memiliki lebih banyak informasi, mengenal lebih banyak orang, dan memahami bahwa teknologi hadir bersama relasi sosial. Apa yang akan ia lakukan?',
+ o:[
+  {t:'Tetap menjadi pengamat',d:'Kamu memilih terus belajar sebelum mengambil peran lebih jauh.',g:{pengetahuan:3},fb:'Nggak ada yang salah dengan mengamati. Rani siap kalau waktunya tiba.'},
+  {t:'Menjadi peserta aktif',d:'Kamu berkomitmen hadir dalam ruang informasi dan keputusan.',cost:{energi:6},g:{suara:5,agency:4},fb:'Kursi di forum sekarang punya nama Rani.'},
+  {t:'Membangun kelompok perempuan',d:'Kamu mengubah jejaring menjadi ruang belajar dan dukungan bersama.',cost:{waktu:6},g:{jaringan:8,agency:5},fb:'Kelompok baru "Ibu-Ibu Cirata Terang" resmi berdiri. Anggotanya sudah tujuh, grup WhatsApp-nya langsung rame.'},
+  {t:'Gabungkan pengetahuan, jejaring, suara, dan advokasi',d:'Kamu menjadikan pengetahuan sebagai dasar perubahan bersama.',cost:{energi:10,waktu:8},g:{pengetahuan:4,jaringan:4,suara:6,agency:8},req:{min:{pengetahuan:25,jaringan:20,suara:15},lock:'Butuh Pengetahuan 25, Jaringan 20, Suara 15'},fb:'Rani maju. Dan kali ini nggak sendirian, ada banyak orang di belakangnya.'}]}
+];
+const ENDINGS={
+ observer:{n:'The Observer',d:'Kamu tahu PLTS ada dan mulai kepo, tapi belum banyak turun tangan. Santai, semua Change Maker juga mulai dari sini.'},
+ informed:{n:'The Informed Woman',d:'Pengetahuan dan akses informasimu mantap. Tinggal bawa ilmu itu ke ruang yang menentukan keputusan.'},
+ voice:{n:'The Community Voice',d:'Jaringanmu luas, suaramu terdengar. Kamu aktif menyuarakan kebutuhan perempuan di desa.'},
+ change:{n:'The Change Maker',d:'Tahu banyak, kenal banyak, berani ngomong, dan ikut memutuskan. Lengkap!'}
+};
+const POWER=['Know','Access','Network','Voice','Decision','Agency'];
+const N=7,TARGET=42,PTS=0.35;
+const $=id=>document.getElementById(id);
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+let S,board,busy,sel=null,fallMap={};
+const rnd=()=>Math.floor(Math.random()*6);
+function fresh(){return {day:0,prog:0,cleared:0,flags:{},picks:[],t0:Date.now(),st:{energi:70,waktu:70,uang:40,pengetahuan:2,jaringan:2,suara:2,agency:0}}}
+function runs(b){
+  const m=new Set();
+  for(let r=0;r<N;r++)for(let c=0;c<N-2;c++){const i=r*N+c,v=b[i];if(v!=null&&v===b[i+1]&&v===b[i+2]){m.add(i);m.add(i+1);m.add(i+2)}}
+  for(let c=0;c<N;c++)for(let r=0;r<N-2;r++){const i=r*N+c,v=b[i];if(v!=null&&v===b[i+N]&&v===b[i+2*N]){m.add(i);m.add(i+N);m.add(i+2*N)}}
+  return m;
+}
+function moves(b){
+  const out=[];
+  for(let i=0;i<N*N;i++){
+    for(const j of [i+1,i+N]){
+      if(j>=N*N||(j===i+1&&(i%N)===N-1))continue;
+      [b[i],b[j]]=[b[j],b[i]];const ok=runs(b).size>0;[b[i],b[j]]=[b[j],b[i]];
+      if(ok)out.push([i,j]);
+    }
+  }
+  return out;
+}
+function newBoard(){
+  do{board=Array.from({length:N*N},rnd);
+    while(runs(board).size){for(const i of runs(board))board[i]=rnd()}
+  }while(!moves(board).length);
+}
+function render(){
+  const el=$('board');el.innerHTML='';
+  board.forEach((v,i)=>{
+    const b=document.createElement('button');b.type='button';b.className='cell'+(sel===i?' sel':'')+(fallMap[i]?' fall':'');
+    b.dataset.i=i;b.dataset.t=v;b.textContent=TILES[v].e;b.setAttribute('aria-label',NAMA[TILES[v].k]);
+    if(fallMap[i])b.style.setProperty('--d',fallMap[i]);
+    el.appendChild(b);
+  });
+  fallMap={};
+}
+function bump(k){const e=document.querySelector(`[data-s="${k}"] b`);if(e){e.classList.add('bump');setTimeout(()=>e.classList.remove('bump'),220)}}
+function hud(){
+  const d=DAYS[S.day];$('dayChip').textContent=d.chip;
+  const pct=Math.min(100,Math.round(S.prog));$('prog').style.width=pct+'%';$('progTxt').textContent=pct+'%';
+  $('stats').innerHTML=['pengetahuan','jaringan','suara','agency'].map(k=>`<div class="stat" data-s="${k}"><b>${Math.floor(S.st[k])}</b><span>${NAMA[k]}</span></div>`).join('');
+  const col={energi:'--c-energi',waktu:'--c-waktu',uang:'--c-uang'};
+  $('pools').innerHTML=['energi','waktu','uang'].map(k=>`<div class="pool">${NAMA[k]} ${Math.round(S.st[k])}<div><i style="width:${S.st[k]}%;background:var(${col[k]})"></i></div></div>`).join('');
+}
+function cheer(t){const c=$('cheer');c.textContent=t;c.classList.remove('show');void c.offsetWidth;c.classList.add('show')}
+const CHEERS=['Mantap','Nice, lanjut','Smooth banget','Gas terus','Healing banget','Santai tapi jago'];
+function reward(set){
+  const cnt={};
+  set.forEach(i=>{const k=TILES[board[i]].k;cnt[k]=(cnt[k]||0)+1});
+  for(const k in cnt){
+    if(['energi','waktu','uang'].includes(k))S.st[k]=Math.min(100,S.st[k]+cnt[k]*2.5);
+    else S.st[k]+=cnt[k]*PTS;
+  }
+  if(set.size>=5)S.st.agency+=0.5*(set.size-4);
+  S.prog+=set.size/TARGET*100;S.cleared+=set.size;
+}
+async function resolve(){
+  let chain=0;
+  for(;;){
+    const m=runs(board);if(!m.size)break;
+    chain++;reward(m);hud();sfx(chain);
+    m.forEach(i=>{const e=$('board').children[i];if(e)e.classList.add('pop')});
+    if(chain>1||m.size>=5)cheer(m.size>=5?'Combo besar':CHEERS[Math.floor(Math.random()*CHEERS.length)]);
+    await sleep(230);
+    for(let c=0;c<N;c++){
+      const keep=[];for(let r=N-1;r>=0;r--){if(!m.has(r*N+c))keep.push(board[r*N+c])}
+      const add=N-keep.length;
+      for(let r=N-1;r>=0;r--){
+        const idx=N-1-r,i=r*N+c;
+        if(idx<keep.length){if(board[i]!==keep[idx]||m.has(i)){fallMap[i]=Math.max(1,add)}board[i]=keep[idx]}
+        else{board[i]=rnd();fallMap[i]=N-r}
+      }
+    }
+    render();await sleep(420);
+  }
+  if(!moves(board).length){cheer('Papan diacak ulang');newBoard();render();await sleep(300)}
+}
+async function swap(a,b){
+  if(busy)return;
+  const ra=Math.floor(a/N),rb=Math.floor(b/N),ca=a%N,cb=b%N;
+  if(Math.abs(ra-rb)+Math.abs(ca-cb)!==1)return;
+  busy=true;sel=null;
+  [board[a],board[b]]=[board[b],board[a]];
+  if(!runs(board).size){
+    render();await sleep(120);[board[a],board[b]]=[board[b],board[a]];render();busy=false;return;
+  }
+  render();await sleep(100);
+  await resolve();
+  busy=false;
+  if(S.prog>=100){await sleep(250);showEvent()}
+}
+function pick(i){
+  if(busy)return;
+  if(sel===null){sel=i;render();return}
+  if(sel===i){sel=null;render();return}
+  const a=sel;sel=null;render();swap(a,i);
+}
+let drag=null;
+$('board').addEventListener('pointerdown',e=>{const c=e.target.closest('.cell');if(!c)return;drag={i:+c.dataset.i,x:e.clientX,y:e.clientY,moved:false}});
+window.addEventListener('pointermove',e=>{
+  if(!drag||drag.moved)return;
+  const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
+  if(Math.max(Math.abs(dx),Math.abs(dy))<16)return;
+  drag.moved=true;
+  const i=drag.i,j=Math.abs(dx)>Math.abs(dy)?i+(dx>0?1:-1):i+(dy>0?N:-N);
+  if(j>=0&&j<N*N)swap(i,j);
+});
+window.addEventListener('pointerup',()=>{if(drag&&!drag.moved)pick(drag.i);drag=null});
+window.addEventListener('pointercancel',()=>{drag=null});
+$('hintBtn').onclick=()=>{
+  if(busy)return;const m=moves(board);if(!m.length)return;
+  const [a,b]=m[Math.floor(Math.random()*m.length)];
+  [a,b].forEach(i=>$('board').children[i].classList.add('hint'));
+};
+function showSheet(html){$('card').innerHTML=html;$('sheet').hidden=false;$('card').scrollTop=0}
+function lockReason(o){
+  const r=o.req;if(!r)return null;
+  if(r.flagNot&&S.flags[r.flagNot])return r.lock;
+  if(r.min)for(const k in r.min)if(S.st[k]<r.min[k])return r.lock;
+  return null;
+}
+function lackReason(o){
+  if(!o.cost)return null;
+  for(const k in o.cost)if(S.st[k]<o.cost[k])return 'bekal '+NAMA[k]+' kurang';
+  return null;
+}
+function fmt(obj,sign){return Object.entries(obj||{}).filter(([,v])=>v).map(([k,v])=>`${sign}${v} ${NAMA[k]}`)}
+function showEvent(){
+  const d=DAYS[S.day];
+  const opts=d.o.map((o,i)=>{
+    const lock=lockReason(o),lack=lackReason(o);
+    const tags=[...fmt(o.g,'+').map(t=>`<span class="tag">${t}</span>`),...fmt(o.cost,'-').map(t=>`<span class="tag cost">${t}</span>`)];
+    if(lock||lack){const r=(lock||lack).replace(/^Belum terbuka: /,'');tags.push(`<span class="tag lock">Kurang siap: ${r.charAt(0).toLowerCase()+r.slice(1)} (hasil lebih kecil)</span>`)}
+    return `<button class="opt" type="button" data-o="${i}" ><strong>${o.t}</strong><small>${o.d}</small><div class="tags">${tags.join('')}</div></button>`;
+  }).join('');
+  showSheet(`<div class="eyebrow">${d.tag}</div><h2>${d.q}</h2><p>${d.p}</p><div class="opts">${opts}</div>`);
+  document.querySelectorAll('.opt').forEach(b=>b.onclick=()=>choose(+b.dataset.o));
+}
+function choose(i){
+  const d=DAYS[S.day],o=d.o[i];
+  const weak=!!(lockReason(o)||lackReason(o));
+  for(const k in o.cost)S.st[k]=Math.max(0,S.st[k]-o.cost[k]);
+  const g={};for(const k in o.g)g[k]=weak?Math.floor(o.g[k]/2):o.g[k];
+  for(const k in g)S.st[k]=Math.min(100,S.st[k]+g[k]);
+  if(o.flag)S.flags[o.flag]=true;S.picks[S.day]=i+1;
+  const last=S.day===DAYS.length-1;
+  let note='';
+  if(S.day===0&&o.flag==='skipForum')note='<em>Catatan: pilihan ini bisa bikin hasil beberapa opsi di hari-hari berikutnya jadi lebih kecil. Plot twist menanti.</em>';
+  if(weak)note+='<em>Rani belum sepenuhnya siap untuk pilihan ini, jadi hasilnya lebih kecil dari yang seharusnya.</em>';
+  showSheet(`<div class="eyebrow">Hasil pilihanmu</div><h2>${o.t}</h2><div class="fb">${o.fb}${note}</div><div class="tags">${fmt(g,'+').map(t=>`<span class="tag">${t}</span>`).join('')}</div><button class="btn main" id="nextBtn" type="button">${last?'Lihat perjalanan Rani':'Lanjut ke hari berikutnya'}</button>`);
+  hud();
+  $('nextBtn').onclick=()=>last?ending():nextDay();
+}
+function nextDay(){
+  S.day++;S.prog=0;
+  S.st.energi=Math.min(100,S.st.energi+15);S.st.waktu=Math.max(S.st.waktu,60);
+  $('sheet').hidden=true;
+  $('dayHint').textContent=DAYS[S.day].tag+': match tiles buat ngisi bekal';
+  hud();cheer('Hari '+(S.day+1));
+}
+function endingType(){
+  const s=S.st;
+  if(s.pengetahuan>=40&&s.jaringan>=30&&s.suara>=30&&s.agency>=22)return 'change';
+  if(s.jaringan>=28&&s.suara>=26)return 'voice';
+  if(s.pengetahuan>=32)return 'informed';
+  return 'observer';
+}
+function ending(){
+  const e=ENDINGS[endingType()],s=S.st;
+  const on=[s.pengetahuan>=10,S.flags.docs||s.pengetahuan>=22,s.jaringan>=15,s.suara>=15,s.suara>=25&&s.agency>=14,s.agency>=20];
+  const bar=(k)=>`<div class="row"><span>${NAMA[k]}</span><div><i style="width:${Math.min(100,s[k])}%"></i></div><span>${Math.floor(s[k])}</span></div>`;
+  showSheet(`<div class="eyebrow">Perjalanan selesai</div><h2>${e.n}</h2><p>${e.d}</p>
+  <div class="res">${['pengetahuan','jaringan','suara','agency'].map(bar).join('')}</div>
+  <div class="steps">${POWER.map((p,i)=>`<span class="${on[i]?'on':''}">${p}</span>`).join('')}</div>
+  <div class="fb">Nggak ada menang atau kalah di sini, cuma perjalanan yang beda-beda. Dari semua pilihanmu, mana yang paling kerasa dampaknya buat Rani?<em>Prototipe pembelajaran Her Energy: PLTS Cirata, gender, dan kehidupan komunitas.</em></div>
+  <p id="sendStatus" style="font-size:12.5px;margin:0"></p><button class="btn main" id="againBtn" type="button">Main lagi</button>`);
+  $('againBtn').onclick=start;sendResult();
+}
+function start(){
+  S=fresh();busy=false;sel=null;newBoard();render();hud();
+  $('sheet').hidden=true;$('dayHint').textContent=DAYS[0].tag+': match tiles buat ngisi bekal';
+}
+/* Backsound lo-fi dibuat dengan Web Audio, tanpa file eksternal */
+let AC=null,musicOn=false,master,bus,sfxBus,mTimer=null,nextT=0,barN=0,autoTried=false;
+const BPM=76,BEAT=60/BPM,mf=m=>440*Math.pow(2,(m-69)/12);
+const PROG=[{b:36,c:[48,55,59,64]},{b:33,c:[45,52,55,60]},{b:29,c:[41,48,52,57]},{b:31,c:[55,59,62,64]}];
+const ARP=[0,2,1,3,2,3,1,2],PENTA=[72,74,76,79,81,84];
+function tone(f,t,dur,type,vol,dest,att){
+  att=att||0.01;const o=AC.createOscillator(),g=AC.createGain();o.type=type;o.frequency.value=f;
+  g.gain.setValueAtTime(0.0001,t);g.gain.linearRampToValueAtTime(vol,t+att);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.connect(g);g.connect(dest);o.start(t);o.stop(t+dur+0.05);
+}
+function initAudio(){
+  AC=new (window.AudioContext||window.webkitAudioContext)();
+  master=AC.createGain();master.gain.value=0;master.connect(AC.destination);
+  bus=AC.createGain();const lp=AC.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1800;
+  bus.connect(lp);lp.connect(master);
+  const dl=AC.createDelay(1),fb=AC.createGain(),dg=AC.createGain();dl.delayTime.value=BEAT*0.75;fb.gain.value=0.32;dg.gain.value=0.4;
+  lp.connect(dl);dl.connect(fb);fb.connect(dl);dl.connect(dg);dg.connect(master);
+  sfxBus=AC.createGain();sfxBus.connect(master);
+}
+function scheduleBar(t){
+  const p=PROG[barN%4];
+  p.c.forEach(n=>tone(mf(n),t,BEAT*4,'triangle',0.035,bus,0.5));
+  tone(mf(p.b),t,BEAT*1.8,'sine',0.14,bus,0.02);
+  tone(mf(p.b),t+BEAT*2.5,BEAT*1.2,'sine',0.08,bus,0.02);
+  ARP.forEach((ix,k)=>{if(Math.random()<0.85)tone(mf(p.c[ix]+12),t+k*BEAT/2+(k%2?0.03:0),BEAT*0.9,'sine',0.045,bus,0.01)});
+  barN++;
+}
+function sfx(chain){
+  if(!AC||!musicOn)return;
+  const n=PENTA[Math.min(chain-1,PENTA.length-1)],t=AC.currentTime;
+  tone(mf(n),t,0.28,'sine',0.1,sfxBus,0.005);tone(mf(n+7),t+0.07,0.28,'sine',0.06,sfxBus,0.005);
+}
+function toggleMusic(){
+  if(!AC)initAudio();
+  if(AC.state==='suspended')AC.resume();
+  musicOn=!musicOn;const t=AC.currentTime;
+  master.gain.cancelScheduledValues(t);master.gain.setValueAtTime(master.gain.value,t);
+  if(musicOn){
+    master.gain.linearRampToValueAtTime(0.6,t+1.2);nextT=t+0.1;barN=0;
+    mTimer=setInterval(()=>{while(nextT<AC.currentTime+0.6){scheduleBar(nextT);nextT+=BEAT*4}},120);
+  }else{master.gain.linearRampToValueAtTime(0,t+0.4);clearInterval(mTimer)}
+  
+}
+const tl=n=>`<span class="cell" data-t="${n}" style="width:46px;height:46px;font-size:24px">${TILES[n].e}</span>`;
+const TUT=[
+ {h:'Kenalan dulu sama Rani',demo:'',p:'Rani, 35 tahun, ibu rumah tangga sekaligus pelaku usaha kecil di desa sekitar Waduk Cirata. Tujuh hari ke depan, kamu yang pegang kemudi. Lagi ada proyek PLTS di desa, dan Rani kepo banget.'},
+ {h:'Cara mainnya gampang, kok',demo:`<div style="display:flex;gap:4px;justify-content:center">${tl(3)}${tl(0)}${tl(3)}${tl(3)}</div>`,p:'Geser satu tile ke sebelahnya, atau tap dua tile yang bersebelahan. 3 tile sejenis atau lebih berjajar? Pecah, dan Rani dapat bekal. Salah geser? Tile balik sendiri. Nggak ada nyawa, nggak ada timer, nggak ada yang ngomel.'},
+ {h:'Tiap tile ada artinya',demo:`<div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap">${[0,1,2,3,4,5].map(tl).join('')}</div>`,p:'Energi, Waktu, dan Uang adalah bekal buat bayar pilihan. Pengetahuan, Jaringan, dan Suara bikin posisi Rani makin kuat di desa. Agency naik dari match besar (5 tile atau lebih) dan dari pilihan yang berani.'},
+ {h:'Pertanyaannya nongol sendiri',demo:'',p:'Isi bar progres sampai penuh, lalu Rani bakal ketemu situasi seru dengan 4 pilihan. Nggak ada jawaban benar atau salah, bebas mau gaya yang mana. Tapi awas: pilihan hari ini bisa memengaruhi seberapa besar hasil pilihan di hari-hari berikutnya.'}
+];
+function showTutorial(i){
+  const s=TUT[i],last=i===TUT.length-1;
+  showSheet(`<div class="eyebrow">Tutorial · ${i+1} dari ${TUT.length}</div><h2>${s.h}</h2>${s.demo}<p>${s.p}</p>${i===0&&SHEET_URL?'<p style="font-size:12.5px">Catatan: pilihan dan skor dalam game ini dicatat untuk penelitian.</p>':''}<div class="steps">${TUT.map((_,k)=>`<span class="${k<=i?'on':''}" style="width:24px;height:8px;padding:0"></span>`).join('')}</div><div style="display:flex;gap:8px">${i?'<button class="btn" id="tBack" type="button">Kembali</button>':''}<button class="btn main" id="tNext" type="button" style="flex:1">${last?'Gas, mulai Hari 1':'Lanjut'}</button></div>`);
+  if(i)$('tBack').onclick=()=>showTutorial(i-1);
+  $('tNext').onclick=()=>{
+    if(!last)return showTutorial(i+1);
+    try{if(!musicOn)toggleMusic()}catch(err){}
+    $('sheet').hidden=true;
+  };
+}
+/* ===== Pengiriman hasil ke Google Sheets (via Google Apps Script) ===== */
+const SHEET_URL=''; // tempel URL web app Apps Script (berakhiran /exec) di antara tanda kutip
+function buildRow(){
+  const s=S.st,t=endingType(),r=x=>+x.toFixed(1);
+  const row={waktu:new Date().toISOString(),ending:ENDINGS[t].n,ending_kode:['observer','informed','voice','change'].indexOf(t)+1,
+    pengetahuan:r(s.pengetahuan),jaringan:r(s.jaringan),suara:r(s.suara),agency:r(s.agency),
+    energi:Math.round(s.energi),waktu_sisa:Math.round(s.waktu),uang:Math.round(s.uang),durasi_detik:Math.round((Date.now()-S.t0)/1000)};
+  for(let i=0;i<7;i++)row['h'+(i+1)]=S.picks[i]||'';
+  return row;
+}
+const post=row=>fetch(SHEET_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(row)});
+function getQ(){try{return JSON.parse(localStorage.getItem('he_q')||'[]')}catch(e){return[]}}
+function setQ(q){try{localStorage.setItem('he_q',JSON.stringify(q))}catch(e){}}
+async function flushQ(){
+  const q=getQ();if(!q.length||!SHEET_URL)return;setQ([]);const left=[];
+  for(const row of q){try{await post(row)}catch(e){left.push(row)}}
+  if(left.length)setQ(getQ().concat(left));
+}
+async function sendResult(){
+  const el=$('sendStatus');if(!SHEET_URL){if(el)el.textContent='';return}
+  const row=buildRow();el.textContent='Mengirim hasil...';
+  try{await post(row);el.textContent='Hasil sudah tercatat. Terima kasih!';flushQ()}
+  catch(e){setQ(getQ().concat(row));el.textContent='Koneksi bermasalah. Hasil disimpan dan akan dikirim saat online.'}
+}
+window.addEventListener('online',flushQ);
+flushQ();
+start();
+showTutorial(0);
+</script>
+
+</body>
+</html>
