@@ -409,7 +409,7 @@ function showTutorial(i){
   };
 }
 /* ===== Pengiriman hasil ke Google Sheets (via Google Apps Script) ===== */
-const SHEET_URL=''; // tempel URL web app Apps Script (berakhiran /exec) di antara tanda kutip
+const SHEET_URL='https://script.google.com/macros/s/AKfycbz8UkjfDFIcpZSq3HtFu8oN6L3uz_eV3YD9qqoMmDjVC1sF2OAw8o3Pt1n-WHNbhyD0/exec'; // tempel URL web app Apps Script (berakhiran /exec) di antara tanda kutip
 function buildRow(){
   const s=S.st,t=endingType(),r=x=>+x.toFixed(1);
   const row={waktu:new Date().toISOString(),ending:ENDINGS[t].n,ending_kode:['observer','informed','voice','change'].indexOf(t)+1,
